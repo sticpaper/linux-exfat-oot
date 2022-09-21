@@ -1114,6 +1114,21 @@ static struct file_system_type exfat_fs_type = {
 	.fs_flags		= FS_REQUIRES_DEV,
 };
 
+#ifdef CONFIG_EXFAT_FOR_TEXFAT
+static struct file_system_type texfat_fs_type = {
+	.owner			= THIS_MODULE,
+	.name			= "texfat",
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+	.init_fs_context	= exfat_init_fs_context,
+	.parameters		= exfat_parameters,
+#else
+	.mount			= exfat_fs_mount,
+#endif
+	.kill_sb		= kill_block_super,
+	.fs_flags		= FS_REQUIRES_DEV,
+};
+#endif
+
 static void exfat_inode_init_once(void *foo)
 {
 	struct exfat_inode_info *ei = (struct exfat_inode_info *)foo;
@@ -1147,6 +1162,12 @@ static int __init init_exfat_fs(void)
 	if (err)
 		goto destroy_cache;
 
+#ifdef CONFIG_EXFAT_FOR_TEXFAT
+	err = register_filesystem(&texfat_fs_type);
+	if (err)
+		goto destroy_cache;
+#endif
+
 	return 0;
 
 destroy_cache:
@@ -1165,6 +1186,9 @@ static void __exit exit_exfat_fs(void)
 	rcu_barrier();
 	kmem_cache_destroy(exfat_inode_cachep);
 	unregister_filesystem(&exfat_fs_type);
+#ifdef CONFIG_EXFAT_FOR_TEXFAT
+	unregister_filesystem(&texfat_fs_type);
+#endif
 	exfat_cache_shutdown();
 }
 
@@ -1172,6 +1196,9 @@ module_init(init_exfat_fs);
 module_exit(exit_exfat_fs);
 
 MODULE_ALIAS_FS("exfat");
+#ifdef CONFIG_EXFAT_FOR_TEXFAT
+MODULE_ALIAS_FS("texfat");
+#endif
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("exFAT filesystem support");
 MODULE_AUTHOR("Samsung Electronics Co., Ltd.");
